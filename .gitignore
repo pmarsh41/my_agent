@@ -1,0 +1,193 @@
+# Environment Variables & Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# API Keys & Config Files
+config.json
+secrets.json
+*.key
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# Database Files
+*.db
+*.sqlite
+*.sqlite3
+protein_tracker.db
+
+# Logs & Debug Files
+*.log
+logs/
+backend.log
+debug.log
+backend/*.log
+
+# Uploaded Files & Media
+uploads/
+temp/
+tmp/
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.heic
+
+# Node.js & React
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# React Build
+build/
+dist/
+
+# Dependency Directories
+node_modules/
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Next.js build output
+.next
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Storybook build outputs
+.out
+.storybook-out
+
+# Temporary folders
+tmp/
+temp/
+
+# Editor & IDE Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Backup Files
+*.bak
+*.backup
+*_backup.py
+main_backup.py
+
+# Test Coverage
+coverage/
+.nyc_output
+.coverage
+.pytest_cache/
+htmlcov/
+
+# Documentation Build
+docs/_build/
+site/
+
+# PyCharm
+.idea/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# Docker
+.dockerignore
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# Local Development
+.local/
+.cache/
+
+# Package Manager Lock Files (keep package-lock.json for reproducible builds)
+# yarn.lock
+
+# Arize/Phoenix Traces
+traces/
+.phoenix/
+
+# LangChain/LangGraph Cache
+.langchain/
+.langgraph/
