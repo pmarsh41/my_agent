@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Protein Tracker - Evaluation Interface</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .span-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .foods-detected {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 10px 0;
+        }
+        
+        .food-tag {
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 14px;
+        }
+        
+        .rating-section {
+            margin: 25px 0;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+        }
+        
+        .rating-stars {
+            display: flex;
+            gap: 5px;
+            margin: 10px 0;
+        }
+        
+        .star {
+            font-size: 24px;
+            color: #ddd;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        
+        .star:hover,
+        .star.active {
+            color: #ffc107;
+        }
+        
+        .categorical-rating {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin: 10px 0;
+        }
+        
+        .category-btn {
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            text-align: left;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .category-btn:hover {
+            border-color: #007bff;
+            background: #f8f9fa;
+        }
+        
+        .category-btn.selected {
+            border-color: #007bff;
+            background: #e3f2fd;
+            color: #1565c0;
+            font-weight: 600;
+        }
+        
+        .form-group {
+            margin: 20px 0;
+        }
+        
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        
+        textarea {
+            height: 80px;
+            resize: vertical;
+        }
+        
+        .button {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        
+        .button:hover {
+            background: #0056b3;
+        }
+        
+        .button-secondary {
+            background: #6c757d;
+            margin-left: 10px;
+        }
+        
+        .button-secondary:hover {
+            background: #545b62;
+        }
+        
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .navigation {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+        }
+        
+        .accuracy-indicator {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            display: inline-block;
+            margin: 5px 0;
+        }
+        
+        .accurate { background: #d4edda; color: #155724; }
+        .somewhat-accurate { background: #fff3cd; color: #856404; }
+        .inaccurate { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🥩 Protein Tracker Evaluation</h1>
+        <p>Help us improve our AI by rating the accuracy of meal analysis results.</p>
+        
+        <!-- Span Information -->
+        <div class="span-info">
+            <h3>Meal Analysis Result</h3>
+            <p><strong>Span ID:</strong> <span id="span-id">span_12345678</span></p>
+            <p><strong>User ID:</strong> <span id="user-id">1</span></p>
+            <p><strong>Timestamp:</strong> <span id="timestamp">2025-07-10 16:30:00</span></p>
+            
+            <div>
+                <strong>Foods Detected:</strong>
+                <div class="foods-detected" id="foods-detected">
+                    <span class="food-tag">Grilled Chicken Breast (4oz)</span>
+                    <span class="food-tag">Brown Rice (1 cup)</span>
+                    <span class="food-tag">Steamed Broccoli (1 cup)</span>
+                </div>
+            </div>
+            
+            <p><strong>Protein Estimate:</strong> <span id="protein-estimate">42.5g</span></p>
+            
+            <div>
+                <strong>AI Response:</strong>
+                <div id="ai-response" style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-top: 10px;">
+                    "Great choice! Your meal contains approximately 42.5g of protein. The chicken breast is your main protein source (~35g), with the rice adding some additional protein (~4g). This is an excellent post-workout meal that will help with muscle recovery. Consider adding some healthy fats like avocado to make it even more balanced!"
+                </div>
+            </div>
+        </div>
+
+        <!-- Food Detection Evaluation -->
+        <div class="rating-section">
+            <h3>🍽️ Food Detection Accuracy</h3>
+            <p>How accurate was the food identification?</p>
+            
+            <div class="form-group">
+                <label>Overall Food Detection Accuracy:</label>
+                <div class="categorical-rating" data-rating="food-accuracy">
+                    <button class="category-btn" data-value="ACCURATE">Accurate - All foods correctly identified</button>
+                    <button class="category-btn" data-value="MOSTLY_ACCURATE">Mostly Accurate - Minor identification issues</button>
+                    <button class="category-btn" data-value="SOMEWHAT_ACCURATE">Somewhat Accurate - Some foods missed or wrong</button>
+                    <button class="category-btn" data-value="INACCURATE">Inaccurate - Many foods incorrectly identified</button>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="missing-foods">Missing Foods (foods in image but not detected):</label>
+                <input type="text" id="missing-foods" placeholder="e.g., sauce, seasoning, vegetables">
+            </div>
+            
+            <div class="form-group">
+                <label for="incorrect-foods">Incorrect Foods (foods detected but not in image):</label>
+                <input type="text" id="incorrect-foods" placeholder="e.g., foods that aren't actually there">
+            </div>
+            
+            <div class="form-group">
+                <label for="food-notes">Additional Notes:</label>
+                <textarea id="food-notes" placeholder="Any other feedback about food detection..."></textarea>
+            </div>
+        </div>
+
+        <!-- Protein Estimation Evaluation -->
+        <div class="rating-section">
+            <h3>🥩 Protein Estimation Accuracy</h3>
+            <p>How accurate was the protein estimate of 42.5g?</p>
+            
+            <div class="form-group">
+                <label>Protein Estimate Accuracy:</label>
+                <div class="categorical-rating" data-rating="protein-accuracy">
+                    <button class="category-btn" data-value="HIGHLY_ACCURATE">Highly Accurate - Within 2-3g of actual</button>
+                    <button class="category-btn" data-value="MOSTLY_ACCURATE">Mostly Accurate - Within 5-8g of actual</button>
+                    <button class="category-btn" data-value="SOMEWHAT_ACCURATE">Somewhat Accurate - Within 10-15g of actual</button>
+                    <button class="category-btn" data-value="INACCURATE">Inaccurate - Off by more than 15g</button>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="actual-protein">Your Estimate of Actual Protein (optional):</label>
+                <input type="number" id="actual-protein" placeholder="e.g., 38.5" step="0.1" min="0">
+                <small>grams</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="protein-assessment">Assessment:</label>
+                <select id="protein-assessment">
+                    <option value="">Select...</option>
+                    <option value="accurate">About right</option>
+                    <option value="overestimate">Overestimate</option>
+                    <option value="underestimate">Underestimate</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="protein-notes">Notes about protein estimation:</label>
+                <textarea id="protein-notes" placeholder="Any feedback about the protein calculation..."></textarea>
+            </div>
+        </div>
+
+        <!-- Response Quality Evaluation -->
+        <div class="rating-section">
+            <h3>💬 Response Quality</h3>
+            <p>Evaluate the quality of the AI's conversational response.</p>
+            
+            <div class="form-group">
+                <label>Helpfulness:</label>
+                <div class="categorical-rating" data-rating="helpfulness">
+                    <button class="category-btn" data-value="HIGHLY_HELPFUL">Highly Helpful - Specific, actionable advice</button>
+                    <button class="category-btn" data-value="MODERATELY_HELPFUL">Moderately Helpful - Useful with minor gaps</button>
+                    <button class="category-btn" data-value="SOMEWHAT_HELPFUL">Somewhat Helpful - Basic info, lacks depth</button>
+                    <button class="category-btn" data-value="NOT_HELPFUL">Not Helpful - Vague or irrelevant</button>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Accuracy:</label>
+                <div class="categorical-rating" data-rating="accuracy">
+                    <button class="category-btn" data-value="HIGHLY_ACCURATE">Highly Accurate - All info scientifically correct</button>
+                    <button class="category-btn" data-value="MOSTLY_ACCURATE">Mostly Accurate - Minor inaccuracies</button>
+                    <button class="category-btn" data-value="SOMEWHAT_ACCURATE">Somewhat Accurate - Some questionable info</button>
+                    <button class="category-btn" data-value="INACCURATE">Inaccurate - Misleading information</button>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Tone:</label>
+                <div class="categorical-rating" data-rating="tone">
+                    <button class="category-btn" data-value="EXCELLENT_TONE">Excellent - Very encouraging and supportive</button>
+                    <button class="category-btn" data-value="GOOD_TONE">Good - Positive and motivating</button>
+                    <button class="category-btn" data-value="ACCEPTABLE_TONE">Acceptable - Neutral, not discouraging</button>
+                    <button class="category-btn" data-value="POOR_TONE">Poor - Negative or inappropriate tone</button>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Completeness:</label>
+                <div class="categorical-rating" data-rating="completeness">
+                    <button class="category-btn" data-value="COMPREHENSIVE">Comprehensive - Addresses all aspects</button>
+                    <button class="category-btn" data-value="ADEQUATE">Adequate - Covers main points</button>
+                    <button class="category-btn" data-value="INCOMPLETE">Incomplete - Missing important info</button>
+                    <button class="category-btn" data-value="MISSING_KEY_INFO">Missing Key Info - Fails to address core needs</button>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="response-suggestions">Suggestions for improvement:</label>
+                <textarea id="response-suggestions" placeholder="How could the response be better?"></textarea>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="navigation">
+            <div>
+                <button class="button" onclick="submitEvaluation()">Submit Evaluation</button>
+                <button class="button button-secondary" onclick="skipEvaluation()">Skip This One</button>
+            </div>
+            <div>
+                <button class="button button-secondary" onclick="loadNextSpan()">Next Span</button>
+            </div>
+        </div>
+
+        <!-- Messages -->
+        <div id="message-area"></div>
+    </div>
+
+    <script>
+        // Categorical rating functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Handle star ratings (if any remain)
+            const ratingGroups = document.querySelectorAll('.rating-stars');
+            
+            ratingGroups.forEach(group => {
+                const stars = group.querySelectorAll('.star');
+                
+                stars.forEach((star, index) => {
+                    star.addEventListener('click', function() {
+                        const rating = parseInt(this.dataset.value);
+                        const ratingType = group.dataset.rating;
+                        
+                        // Update star appearance
+                        stars.forEach((s, i) => {
+                            if (i < rating) {
+                                s.classList.add('active');
+                            } else {
+                                s.classList.remove('active');
+                            }
+                        });
+                        
+                        // Store rating
+                        group.setAttribute('data-selected', rating);
+                    });
+                    
+                    star.addEventListener('mouseover', function() {
+                        const hoverRating = parseInt(this.dataset.value);
+                        stars.forEach((s, i) => {
+                            if (i < hoverRating) {
+                                s.style.color = '#ffc107';
+                            } else {
+                                s.style.color = '#ddd';
+                            }
+                        });
+                    });
+                });
+                
+                group.addEventListener('mouseleave', function() {
+                    const selectedRating = parseInt(group.getAttribute('data-selected') || '0');
+                    stars.forEach((s, i) => {
+                        if (i < selectedRating) {
+                            s.style.color = '#ffc107';
+                        } else {
+                            s.style.color = '#ddd';
+                        }
+                    });
+                });
+            });
+            
+            // Handle categorical ratings
+            const categoricalGroups = document.querySelectorAll('.categorical-rating');
+            
+            categoricalGroups.forEach(group => {
+                const buttons = group.querySelectorAll('.category-btn');
+                
+                buttons.forEach(button => {
+                    button.addEventListener('click', function() {
+                        const category = this.dataset.value;
+                        const ratingType = group.dataset.rating;
+                        
+                        // Update button appearance
+                        buttons.forEach(btn => btn.classList.remove('selected'));
+                        this.classList.add('selected');
+                        
+                        // Store category selection
+                        group.setAttribute('data-selected', category);
+                    });
+                });
+            });
+        });
+
+        function showMessage(message, type = 'success') {
+            const messageArea = document.getElementById('message-area');
+            messageArea.innerHTML = `<div class="${type}-message">${message}</div>`;
+            setTimeout(() => {
+                messageArea.innerHTML = '';
+            }, 5000);
+        }
+
+        async function submitEvaluation() {
+            try {
+                // Collect all categorical ratings
+                const categories = {};
+                document.querySelectorAll('.categorical-rating').forEach(group => {
+                    const ratingType = group.dataset.rating;
+                    const selectedCategory = group.getAttribute('data-selected');
+                    if (selectedCategory) {
+                        categories[ratingType] = selectedCategory;
+                    }
+                });
+
+                // Collect any remaining star ratings
+                const ratings = {};
+                document.querySelectorAll('.rating-stars').forEach(group => {
+                    const ratingType = group.dataset.rating;
+                    const selectedRating = parseInt(group.getAttribute('data-selected') || '0');
+                    if (selectedRating > 0) {
+                        ratings[ratingType] = selectedRating;
+                    }
+                });
+
+                // Collect form data
+                const evaluationData = {
+                    span_id: document.getElementById('span-id').textContent,
+                    
+                    // Food detection feedback
+                    food_detection: {
+                        accuracy_category: categories['food-accuracy'] || null,
+                        missing_foods: document.getElementById('missing-foods').value.split(',').map(f => f.trim()).filter(f => f),
+                        incorrect_foods: document.getElementById('incorrect-foods').value.split(',').map(f => f.trim()).filter(f => f),
+                        notes: document.getElementById('food-notes').value
+                    },
+                    
+                    // Protein estimation feedback
+                    protein_estimation: {
+                        accuracy_category: categories['protein-accuracy'] || null,
+                        actual_protein: parseFloat(document.getElementById('actual-protein').value) || null,
+                        assessment: document.getElementById('protein-assessment').value,
+                        notes: document.getElementById('protein-notes').value
+                    },
+                    
+                    // Response quality feedback
+                    response_quality: {
+                        helpfulness: categories['helpfulness'] || null,
+                        accuracy: categories['accuracy'] || null,
+                        tone: categories['tone'] || null,
+                        completeness: categories['completeness'] || null,
+                        suggestions: document.getElementById('response-suggestions').value
+                    }
+                };
+
+                // Submit to API
+                const response = await fetch('/evaluate/feedback/comprehensive', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(evaluationData)
+                });
+
+                if (response.ok) {
+                    showMessage('Evaluation submitted successfully! Thank you for your feedback.', 'success');
+                    setTimeout(loadNextSpan, 2000);
+                } else {
+                    throw new Error('Failed to submit evaluation');
+                }
+
+            } catch (error) {
+                showMessage('Error submitting evaluation: ' + error.message, 'error');
+            }
+        }
+
+        function skipEvaluation() {
+            if (confirm('Are you sure you want to skip this evaluation?')) {
+                loadNextSpan();
+            }
+        }
+
+        async function loadNextSpan() {
+            try {
+                // In production, this would fetch the next span from the API
+                showMessage('Loading next span...', 'success');
+                
+                // For demo, just reset the form
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+                
+            } catch (error) {
+                showMessage('Error loading next span: ' + error.message, 'error');
+            }
+        }
+
+        // Load initial data
+        document.addEventListener('DOMContentLoaded', function() {
+            // In production, this would load the span data from the API
+            console.log('Evaluation interface loaded');
+        });
+    </script>
+</body>
+</html>

@@ -12,6 +12,8 @@ import base64
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 import uvicorn
+import json
+from evaluation_endpoints import setup_evaluation_endpoints
 
 # Load environment variables
 load_dotenv()
@@ -68,6 +70,12 @@ def setup_tracing() -> Optional[Any]:
             print("ℹ️ Arize tracing disabled - credentials not configured")
             print("📝 To enable tracing, set ARIZE_SPACE_ID and ARIZE_API_KEY in backend/.env")
             return None
+        
+        # Set OTLP exporter environment variables for better timeout handling
+        os.environ["OTEL_EXPORTER_OTLP_TIMEOUT"] = "30000"  # 30 seconds timeout
+        os.environ["OTEL_BSP_MAX_EXPORT_BATCH_SIZE"] = "1"  # Send only 1 trace at a time
+        os.environ["OTEL_BSP_SCHEDULE_DELAY"] = "30000"  # 30 seconds delay between exports
+        os.environ["OTEL_BSP_MAX_QUEUE_SIZE"] = "2048"  # Larger queue to buffer traces
             
         tracer_provider = register(
             space_id=space_id,
@@ -80,6 +88,7 @@ def setup_tracing() -> Optional[Any]:
         print("✅ Arize tracing initialized successfully")
         print(f"📊 Project: protein-tracker")
         print(f"🔗 Space ID: {space_id[:8]}...")
+        print("⚡ Rate limiting configured: 32 traces per batch, 10s between exports")
         
         return tracer_provider
         
@@ -114,6 +123,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Setup evaluation endpoints and pipeline
+space_id = os.getenv("ARIZE_SPACE_ID")
+api_key = os.getenv("ARIZE_API_KEY")
+
+if space_id and api_key:
+    evaluation_pipeline = setup_evaluation_endpoints(app, space_id, api_key)
+    print("✅ Evaluation system initialized")
+else:
+    print("⚠️ Evaluation system disabled - Arize credentials not found")
 
 # Pydantic models for meal analysis
 class MealAnalysisRequest(BaseModel):
@@ -259,7 +278,7 @@ def log_meal_to_database(user_id: int, foods_detected: List[str], protein_estima
         # Create meal entry
         meal_data = {
             "user_id": user_id,
-            "foods_detected": foods_detected,
+            "foods_detected": json.dumps(foods_detected),
             "protein_estimate": protein_estimate,
             "image_url": f"/uploads/{image_filename}" if image_filename else None,
             "timestamp": datetime.utcnow()
@@ -930,7 +949,10 @@ def upload_image(file: UploadFile = File(...)):
 
 @app.post("/meals/", response_model=MealSchema)
 def create_meal(meal: MealCreate, db: Session = Depends(get_db)):
-    db_meal = Meal(**meal.dict())
+    meal_dict = meal.dict()
+    if 'foods_detected' in meal_dict and isinstance(meal_dict['foods_detected'], list):
+        meal_dict['foods_detected'] = json.dumps(meal_dict['foods_detected'])
+    db_meal = Meal(**meal_dict)
     db.add(db_meal)
     db.commit()
     db.refresh(db_meal)
@@ -970,7 +992,7 @@ async def confirm_meal_portions(request: PortionConfirmationRequest, db: Session
         # Create meal entry
         meal_data = {
             "user_id": request.user_id,
-            "foods_detected": logged_foods,
+            "foods_detected": json.dumps(logged_foods),
             "protein_estimate": total_protein,
             "image_url": None,  # Could link to saved image if needed
             "timestamp": datetime.utcnow()
@@ -999,6 +1021,7 @@ async def confirm_meal_portions(request: PortionConfirmationRequest, db: Session
 
 # Mount static files for uploaded images
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount("/templates", StaticFiles(directory="templates"), name="templates")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
