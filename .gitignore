@@ -191,3 +191,5 @@ traces/
 # LangChain/LangGraph Cache
 .langchain/
 .langgraph/
+# SpecStory AI chat history
+.specstory/
