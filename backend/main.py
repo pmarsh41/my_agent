@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
@@ -51,6 +51,9 @@ from smart_meal_agent import (
     generate_conversational_response
 )
 
+# Observability imports
+from observability import observability
+
 # Global tracer provider
 tracer_provider = None
 
@@ -80,13 +83,13 @@ def setup_tracing() -> Optional[Any]:
         tracer_provider = register(
             space_id=space_id,
             api_key=api_key,
-            project_name="protein-tracker"
+            project_name="protein-tracker-app"
         )
         
         LangChainInstrumentor().instrument(tracer_provider=tracer_provider)
         
         print("✅ Arize tracing initialized successfully")
-        print(f"📊 Project: protein-tracker")
+        print(f"📊 Project: protein-tracker-app")
         print(f"🔗 Space ID: {space_id[:8]}...")
         print("⚡ Rate limiting configured: 32 traces per batch, 10s between exports")
         
@@ -607,12 +610,29 @@ class ProteinAnalysisState(TypedDict):
 # Legacy workflow for backwards compatibility
 def image_analysis_node(state: ProteinAnalysisState) -> ProteinAnalysisState:
     """Analyze the meal image to identify foods and estimate protein"""
+    prediction_id = state.get("prediction_id")
+    start_time = datetime.now()
+    
     try:
         print(f"🔍 Starting meal image analysis for user {state['user_id']}")
         
         analysis_result = analyze_meal_image.invoke({
             "image_data": state["image_data"]
         })
+        
+        # Log food identification to observability
+        if prediction_id:
+            latency_ms = (datetime.now() - start_time).total_seconds() * 1000
+            observability.log_food_identification_node(
+                prediction_id=prediction_id,
+                vision_api_response={
+                    "model": "gpt-4-vision",
+                    "usage": {"total_tokens": 500, "cost": 0.01}  # Mock data - would come from actual API
+                },
+                detected_foods=analysis_result["foods_detected"],
+                confidence_scores={food: 0.8 for food in analysis_result["foods_detected"]},  # Mock confidence
+                latency_ms=latency_ms
+            )
         
         print(f"✅ Image analysis completed - found {len(analysis_result['foods_detected'])} foods")
         
@@ -623,6 +643,15 @@ def image_analysis_node(state: ProteinAnalysisState) -> ProteinAnalysisState:
         }
         
     except Exception as e:
+        # Log error to observability
+        if prediction_id:
+            observability.log_error_span(
+                prediction_id=prediction_id,
+                error=e,
+                node_name="image_analysis",
+                context={"user_id": state.get("user_id")}
+            )
+        
         print(f"❌ Image analysis error: {str(e)}")
         return {
             "messages": [HumanMessage(content=f"Analysis failed: {str(e)}")],
@@ -632,6 +661,9 @@ def image_analysis_node(state: ProteinAnalysisState) -> ProteinAnalysisState:
 
 def meal_logging_node(state: ProteinAnalysisState) -> ProteinAnalysisState:
     """Log the analyzed meal to the database"""
+    prediction_id = state.get("prediction_id")
+    start_time = datetime.now()
+    
     try:
         print(f"💾 Logging meal for user {state['user_id']}")
         
@@ -643,6 +675,17 @@ def meal_logging_node(state: ProteinAnalysisState) -> ProteinAnalysisState:
             "foods_detected": foods,
             "protein_estimate": protein
         })
+        
+        # Log database matching to observability (simulated)
+        if prediction_id:
+            latency_ms = (datetime.now() - start_time).total_seconds() * 1000
+            observability.log_database_matching_node(
+                prediction_id=prediction_id,
+                nutrition_matches={food: {"protein_per_100g": 20} for food in foods},
+                match_confidence={food: 0.9 for food in foods},
+                fallback_used=[],
+                latency_ms=latency_ms
+            )
         
         print(f"✅ Meal logging completed - success: {logging_result['success']}")
         
@@ -658,6 +701,15 @@ def meal_logging_node(state: ProteinAnalysisState) -> ProteinAnalysisState:
         }
         
     except Exception as e:
+        # Log error to observability
+        if prediction_id:
+            observability.log_error_span(
+                prediction_id=prediction_id,
+                error=e,
+                node_name="meal_logging",
+                context={"user_id": state.get("user_id"), "foods": state.get("foods_detected", [])}
+            )
+        
         print(f"❌ Meal logging error: {str(e)}")
         return {
             "messages": [HumanMessage(content=f"Logging failed: {str(e)}")],
@@ -747,7 +799,25 @@ def update_user(user_id: int, user_update: UserUpdate, db: Session = Depends(get
 @app.post("/analyze-meal-smart/", response_model=SmartMealAnalysisResponse)
 async def analyze_meal_smart(user_id: int, file: UploadFile = File(...)):
     """Analyze meal using smart AI-assisted workflow with conversational interface"""
+    
+    # Create observability span for meal analysis
+    prediction_id = observability.create_meal_analysis_span(
+        user_id=user_id,
+        image_metadata={
+            "size": len(await file.read()),
+            "format": file.content_type or "unknown",
+            "filename": file.filename
+        },
+        user_context={
+            "daily_protein_goal": 100,  # Default - would normally come from user profile
+            "current_protein_today": 0,  # Would query from database
+            "meal_number_today": 1,      # Would count from today's meals
+        }
+    )
+    
     try:
+        # Reset file pointer and read image
+        await file.seek(0)
         # Read and encode image
         image_bytes = file.file.read()
         image_base64 = base64.b64encode(image_bytes).decode('utf-8')
@@ -831,8 +901,29 @@ async def analyze_meal_smart(user_id: int, file: UploadFile = File(...)):
         
         if output and output.get("final_result"):
             result = output["final_result"]
+            
+            # Complete observability span with successful results
+            observability.complete_meal_analysis_span(
+                prediction_id=prediction_id,
+                final_results={
+                    "detected_foods": result.get("identified_foods", []),
+                    "total_protein": result.get("total_protein_estimate", 0.0),
+                    "response": result.get("conversation_response", ""),
+                    "confidence": 0.8 if result.get("success", False) else 0.3
+                },
+                success=result.get("success", False)
+            )
+            
             return SmartMealAnalysisResponse(**result)
         else:
+            # Complete observability span with failure
+            observability.complete_meal_analysis_span(
+                prediction_id=prediction_id,
+                final_results={},
+                success=False,
+                error_message="Analysis completed but no results available"
+            )
+            
             # Fallback response
             return SmartMealAnalysisResponse(
                 success=False,
@@ -846,6 +937,14 @@ async def analyze_meal_smart(user_id: int, file: UploadFile = File(...)):
             )
             
     except Exception as e:
+        # Complete observability span with error
+        observability.complete_meal_analysis_span(
+            prediction_id=prediction_id,
+            final_results={},
+            success=False,
+            error_message=str(e)
+        )
+        
         print(f"❌ Smart meal analysis error: {str(e)}")
         return SmartMealAnalysisResponse(
             success=False,
@@ -860,11 +959,28 @@ async def analyze_meal_smart(user_id: int, file: UploadFile = File(...)):
 
 # Legacy LangGraph-powered meal analysis endpoint (keeping for backwards compatibility)
 @app.post("/analyze-meal-ai/", response_model=MealAnalysisResponse)
-async def analyze_meal_ai(request: MealAnalysisRequest, file: UploadFile = File(...)):
+async def analyze_meal_ai(user_id: int = Form(...), file: UploadFile = File(...)):
     """Analyze meal using AI-powered LangGraph workflow"""
+    
+    # Create observability span for meal analysis
+    prediction_id = observability.create_meal_analysis_span(
+        user_id=user_id,
+        image_metadata={
+            "size": len(await file.read()),
+            "format": file.content_type or "unknown",
+            "filename": file.filename
+        },
+        user_context={
+            "daily_protein_goal": 100,  # Default - would normally come from user profile
+            "current_protein_today": 0,  # Would query from database
+            "meal_number_today": 1,      # Would count from today's meals
+        }
+    )
+    
     try:
-        # Read and encode image
-        image_bytes = file.file.read()
+        # Reset file pointer and read image
+        await file.seek(0)
+        image_bytes = await file.read()
         image_base64 = base64.b64encode(image_bytes).decode('utf-8')
         
         # Save uploaded file
@@ -873,7 +989,7 @@ async def analyze_meal_ai(request: MealAnalysisRequest, file: UploadFile = File(
         file_location = os.path.join(uploads_dir, file.filename)
         
         # Reset file pointer and save
-        file.file.seek(0)
+        await file.seek(0)
         with open(file_location, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
@@ -882,17 +998,18 @@ async def analyze_meal_ai(request: MealAnalysisRequest, file: UploadFile = File(
         
         initial_state = {
             "messages": [],
-            "user_id": request.user_id,
+            "user_id": user_id,
             "image_data": image_base64,
             "foods_detected": None,
             "protein_estimate": None,
             "meal_logged": None,
-            "final_result": None
+            "final_result": None,
+            "prediction_id": prediction_id  # Pass observability context
         }
         
-        config = {"configurable": {"thread_id": f"meal_analysis_{request.user_id}_{datetime.now().isoformat()}"}}
+        config = {"configurable": {"thread_id": f"meal_analysis_{user_id}_{datetime.now().isoformat()}"}}
         
-        print(f"🚀 Starting AI meal analysis for user {request.user_id}")
+        print(f"🚀 Starting AI meal analysis for user {user_id}")
         
         output = graph.invoke(initial_state, config)
         
@@ -900,15 +1017,42 @@ async def analyze_meal_ai(request: MealAnalysisRequest, file: UploadFile = File(
         
         if output and output.get("final_result"):
             result = output["final_result"]
+            
+            # Complete observability span with successful results
+            observability.complete_meal_analysis_span(
+                prediction_id=prediction_id,
+                final_results={
+                    "detected_foods": result.get("foods_detected", []),
+                    "total_protein": result.get("protein_estimate", 0.0),
+                    "response": "Analysis completed successfully",
+                    "confidence": 0.8  # Default confidence
+                },
+                success=True
+            )
+            
             return MealAnalysisResponse(
                 foods_detected=result.get("foods_detected", []),
                 protein_estimate=result.get("protein_estimate", 0.0),
                 meal_id=result.get("meal_id")
             )
         else:
+            # Complete observability span with failure
+            observability.complete_meal_analysis_span(
+                prediction_id=prediction_id,
+                final_results={},
+                success=False,
+                error_message="Analysis completed but no results available"
+            )
             raise HTTPException(status_code=500, detail="Analysis completed but no results available")
             
     except Exception as e:
+        # Complete observability span with error
+        observability.complete_meal_analysis_span(
+            prediction_id=prediction_id,
+            final_results={},
+            success=False,
+            error_message=str(e)
+        )
         print(f"❌ AI meal analysis error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
@@ -916,13 +1060,42 @@ async def analyze_meal_ai(request: MealAnalysisRequest, file: UploadFile = File(
 @app.post("/analyze-meal/")
 def analyze_meal_simple(file: UploadFile = File(...)):
     """Simple meal analysis (legacy endpoint)"""
+    
+    # Create observability span for meal analysis (default user_id since this endpoint doesn't require it)
+    prediction_id = observability.create_meal_analysis_span(
+        user_id=0,  # Anonymous user for legacy endpoint
+        image_metadata={
+            "size": len(file.file.read()),
+            "format": file.content_type or "unknown",
+            "filename": file.filename or "unknown"
+        },
+        user_context={
+            "daily_protein_goal": 100,  # Default values for legacy endpoint
+            "current_protein_today": 0,
+            "meal_number_today": 1,
+        }
+    )
+    
     try:
-        # Read image bytes
+        # Reset file pointer and read image bytes
+        file.file.seek(0)
         image_bytes = file.file.read()
         image_base64 = base64.b64encode(image_bytes).decode('utf-8')
         
         # Use the LangGraph tool directly
         result = analyze_meal_image.invoke({"image_data": image_base64})
+        
+        # Complete observability span with successful results
+        observability.complete_meal_analysis_span(
+            prediction_id=prediction_id,
+            final_results={
+                "detected_foods": result["foods_detected"],
+                "total_protein": result["protein_estimate"],
+                "response": result["analysis_text"],
+                "confidence": 0.7  # Default confidence for legacy endpoint
+            },
+            success=True
+        )
         
         return {
             "foods_detected": result["foods_detected"],
@@ -931,6 +1104,14 @@ def analyze_meal_simple(file: UploadFile = File(...)):
         }
         
     except Exception as e:
+        # Complete observability span with error
+        observability.complete_meal_analysis_span(
+            prediction_id=prediction_id,
+            final_results={},
+            success=False,
+            error_message=str(e)
+        )
+        
         return {"error": "Analysis failed", "details": str(e)}
 
 # File upload endpoint
